@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="header-wrap">
+    <div>
+      <h1>{{ title }}</h1>
+      <p>Interactive executive dashboard delivering actionable insights into regional sales performance, profitability, customer behavior, and strategic growth opportunities.</p>
+    </div>
+    <div class="header-actions">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false">Dark mode</button>
+      {% if logo_data_uri %}
+      <img src="{{ logo_data_uri }}" alt="Sidocomms Logo" class="report-logo">
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="section tab-nav-wrap">
+    <div class="tab-nav" role="tablist" aria-label="Dashboard tabs">
+      <button class="tab-button active" type="button" role="tab" aria-selected="true" data-tab="tab-executive">Executive Summary</button>
+      <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab="tab-sales">Sales Performance</button>
+      <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab="tab-regional">Regional Analysis</button>
+      <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab="tab-customer">Customer Analysis</button>
+      <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab="tab-team">Sales Team Performance</button>
+      {% if has_product %}
+      <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab="tab-product">Product Analysis</button>
+      {% endif %}
+      <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab="tab-insights">Business Insights</button>
+    </div>
+  </section>
+  <template id="dateSlicerTemplate">
+    <div class="date-slicer-group" aria-label="Global date slicers">
+      <div class="slicer-block" data-slicer="Year">
+        <div class="slicer-header">
+          <span class="slicer-title">Year</span>
+          <div class="slicer-actions">
+            <button type="button" class="slicer-action" data-action="all">Select All</button>
+            <button type="button" class="slicer-action" data-action="clear">Clear</button>
+          </div>
+        </div>
+        <div class="slicer-buttons" data-values></div>
+      </div>
+      <div class="slicer-block" data-slicer="Quarter">
+        <div class="slicer-header">
+          <span class="slicer-title">Quarter</span>
+          <div class="slicer-actions">
+            <button type="button" class="slicer-action" data-action="all">Select All</button>
+            <button type="button" class="slicer-action" data-action="clear">Clear</button>
+          </div>
+        </div>
+        <div class="slicer-buttons" data-values></div>
+      </div>
+      <div class="slicer-block" data-slicer="Month">
+        <div class="slicer-header">
+          <span class="slicer-title">Month</span>
+          <div class="slicer-actions">
+            <button type="button" class="slicer-action" data-action="all">Select All</button>
+            <button type="button" class="slicer-action" data-action="clear">Clear</button>
+          </div>
+        </div>
+        <div class="slicer-buttons" data-values></div>
+      </div>
+      <p class="small active-filter-summary" hidden></p>
+    </div>
+  </template>
+
+  <section id="tab-executive" class="tab-panel active" role="tabpanel">
+    <section class="section">
+      <h2>Executive Summary</h2>
+      <p class="small">Top-line financial outcomes, major signals, and strategic priorities at a glance.</p>
+      <div class="date-slicer-host"></div>
+      <div class="kpi-grid">
+        {% for card in kpi_cards %}
+        <div class="kpi-card">
+          <div class="kpi-label">{{ card.label }}</div>
+          <div class="kpi-value" data-kpi-value="{{ card.label }}">{{ card.value }}</div>
+          <div class="kpi-note">{{ card.note }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="summary-callout" style="margin-top: 14px;">
+        <p id="execHeadline">{{ summary.headline }}</p>
+        <p id="execMargin">{{ summary.margin }}</p>
+        <p id="execScale">{{ summary.scale }}</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Key Business Highlights</h2>
+      <p class="small">Concise performance highlights for executive review.</p>
+      <ul class="insight-list">
+        {% for insight in top_insights %}
+        <li>{{ insight }}</li>
+        {% endfor %}
+        {% for note in storyline_notes %}
+        <li>{{ note }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>High-Level Trends</h2>
+      <p class="small">Revenue and profit trajectory over time.</p>
+      <div class="chart-grid compact-grid">
+        {% if charts.monthly_revenue_exec %}<div class="chart-panel full">{{ charts.monthly_revenue_exec | safe }}</div>{% endif %}
+        {% if charts.quarterly_mix_exec %}<div class="chart-panel full">{{ charts.quarterly_mix_exec | safe }}</div>{% endif %}
+      </div>
+      <p class="small"><strong>Benchmark:</strong> {{ monthly_benchmark_method }}. {{ monthly_performance_insight }}</p>
+    </section>
+
+    <section class="section">
+      <h2>Strategic Recommendations</h2>
+      <p>Focus on region-specific profitability, tighten channel margin controls, protect and grow high-value customer accounts, and coach sales teams that are underperforming on profit rather than just revenue.</p>
+    </section>
+  </section>
+
+  <section id="tab-sales" class="tab-panel" role="tabpanel">
+    <section class="section">
+      <h2>Sales Performance</h2>
+      <p class="small">Trend momentum, growth rates, and channel-level performance drivers.</p>
+      <div class="date-slicer-host"></div>
+      <div class="filters">
+        <div class="filter-group">
+          <label for="regionFilter">Region</label>
+          <select id="regionFilter"><option value="">All Regions</option>{% for item in filter_options.regions %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>
+        </div>
+        <div class="filter-group">
+          <label for="channelFilter">Sales Channel</label>
+          <select id="channelFilter"><option value="">All Channels</option>{% for item in filter_options.channels %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>
+        </div>
+        <div class="filter-group">
+          <label for="customerFilter">Customer</label>
+          <select id="customerFilter"><option value="">All Customers</option>{% for item in filter_options.customers %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>
+        </div>
+        <div class="filter-group">
+          <label for="teamFilter">Sales Team</label>
+          <select id="teamFilter"><option value="">All Teams</option>{% for item in filter_options.teams %}<option value="{{ item }}">{{ item }}</option>{% endfor %}</select>
+        </div>
+        <div class="filter-group">
+          <label for="startDate">Start Date</label>
+          <input id="startDate" type="date">
+        </div>
+        <div class="filter-group">
+          <label for="endDate">End Date</label>
+          <input id="endDate" type="date">
+        </div>
+      </div>
+      <div class="summary-callout" id="filteredSummary"></div>
+    </section>
+
+    <section class="section">
+      <h2>Revenue and Profit Trends</h2>
+      <p class="small">Monthly and quarterly trajectory of commercial performance.</p>
+      <div class="chart-grid compact-grid">
+        {% if charts.monthly_revenue %}<div class="chart-panel full">{{ charts.monthly_revenue | safe }}</div>{% endif %}
+        {% if charts.monthly_profit %}<div class="chart-panel full">{{ charts.monthly_profit | safe }}</div>{% endif %}
+        {% if charts.monthly_growth %}<div class="chart-panel full">{{ charts.monthly_growth | safe }}</div>{% endif %}
+        {% if charts.quarterly_mix %}<div class="chart-panel full">{{ charts.quarterly_mix | safe }}</div>{% endif %}
+        {% if charts.scatter %}<div class="chart-panel full">{{ charts.scatter | safe }}</div>{% endif %}
+      </div>
+      <p class="small" id="monthlyInsight"><strong>Monthly performance insight:</strong> {{ monthly_performance_insight }}</p>
+    </section>
+
+    <section class="section">
+      <h2>Sales Channel Analysis</h2>
+      <p class="small">Channel contribution, profitability, and volume/revenue positioning.</p>
+      <div class="chart-grid channel-kpi-grid">
+        {% if charts.channel_revenue %}<div class="chart-panel">{{ charts.channel_revenue | safe }}</div>{% endif %}
+        {% if charts.channel_profit %}<div class="chart-panel">{{ charts.channel_profit | safe }}</div>{% endif %}
+        {% if charts.channel_orders %}<div class="chart-panel">{{ charts.channel_orders | safe }}</div>{% endif %}
+      </div>
+      <div class="chart-grid compact-grid">
+        <div class="chart-panel full">{{ charts.channel_margin | safe }}</div>
+        <div class="chart-panel full">{{ charts.channel_scatter | safe }}</div>
+        <div class="chart-panel full">{{ charts.box | safe }}</div>
+      </div>
+      <p class="small" id="channelInsight">{{ channel_scatter_insight }}</p>
+      <p class="small"><strong>Order definition:</strong> {{ channel_order_definition }}</p>
+    </section>
+  </section>
+
+  <section id="tab-regional" class="tab-panel" role="tabpanel">
+    <section class="section">
+      <h2>Regional Analysis</h2>
+      <p class="small">Regional performance, contribution, and comparative profitability.</p>
+      <div class="date-slicer-host"></div>
+      <div class="chart-grid">
+        <div class="chart-panel">{{ charts.region_revenue | safe }}</div>
+        <div class="chart-panel">{{ charts.region_profit | safe }}</div>
+        <div class="chart-panel full">{{ charts.region_map | safe }}</div>
+        <div class="chart-panel full">{{ charts.region_margin | safe }}</div>
+        <div class="chart-panel full">{{ charts.heatmap | safe }}</div>
+        <div class="chart-panel full"><div class="table-wrap" id="tableRevenueByRegion">{{ revenue_by_region | safe }}</div></div>
+      </div>
+      <p class="small" id="mapNote">{{ map_note }}</p>
+    </section>
+  </section>
+
+  <section id="tab-customer" class="tab-panel" role="tabpanel">
+    <section class="section">
+      <h2>Customer Analysis</h2>
+      <p class="small">Customer revenue contribution, profitability, and concentration risk.</p>
+      <div class="date-slicer-host"></div>
+      <div class="chart-grid">
+        <div class="chart-panel">{{ charts.customer_revenue | safe }}</div>
+        <div class="chart-panel">{{ charts.customer_profit | safe }}</div>
+        <div class="chart-panel full">{{ charts.customer_concentration | safe }}</div>
+        <div class="chart-panel full"><div class="table-wrap" id="tableTopCustomers">{{ top_customers | safe }}</div></div>
+        <div class="chart-panel full"><div class="table-wrap" id="tableBottomCustomers">{{ bottom_customers | safe }}</div></div>
+        <div class="chart-panel full"><div class="table-wrap" id="tableConcentration">{{ concentration_table | safe }}</div></div>
+      </div>
+    </section>
+  </section>
+
+  <section id="tab-team" class="tab-panel" role="tabpanel">
+    <section class="section">
+      <h2>Sales Team Performance</h2>
+      <p class="small">Team ranking, contribution, and efficiency across volume and revenue.</p>
+      <div class="date-slicer-host"></div>
+      <div class="chart-grid">
+        <div class="chart-panel full">{{ charts.team_revenue | safe }}</div>
+        <div class="chart-panel full">{{ charts.team_profit | safe }}</div>
+        <div class="chart-panel full">{{ charts.team_scatter | safe }}</div>
+        <div class="chart-panel full"><div class="table-wrap" id="tableTeamRank">{{ team_rank | safe }}</div></div>
+      </div>
+      <p class="small" id="teamInsight">{{ team_chart_note }}</p>
+    </section>
+  </section>
+
+  {% if has_product %}
+  <section id="tab-product" class="tab-panel" role="tabpanel">
+    <section class="section">
+      <h2>Product Analysis</h2>
+      <p class="small">Product-level contribution and profitability trends.</p>
+      <div class="date-slicer-host"></div>
+      <div class="chart-grid">
+        <div class="chart-panel">{{ charts.product_revenue | safe }}</div>
+        <div class="chart-panel">{{ charts.product_profit | safe }}</div>
+        <div class="chart-panel full">{{ charts.product_quantity | safe }}</div>
+      </div>
+    </section>
+  </section>
+  {% endif %}
+
+  <section id="tab-insights" class="tab-panel" role="tabpanel">
+    <section class="section">
+      <h2>Business Insights</h2>
+      <p class="small">Major business problems, likely root causes, opportunities, and recommended actions.</p>
+      <div class="date-slicer-host"></div>
+      {% for problem in business_problems %}
+      <div class="problem-box">
+        <h3>{{ problem.problem }}</h3>
+        <p><strong>Evidence:</strong> {{ problem.evidence }}</p>
+        <p><strong>Business Impact:</strong> {{ problem.impact }}</p>
+        <p><strong>Likely Drivers:</strong> {{ problem.drivers }}</p>
+        <p><strong>Recommended Strategy:</strong> {{ problem.strategy }}</p>
+        <p><strong>Suggested KPI:</strong> {{ problem.kpi }}</p>
+      </div>
+      {% endfor %}
+    </section>
+
+    <section class="section">
+      <h2>Executive Recommendations and Next Steps</h2>
+      <p>Prioritize margin recovery in weak-performing regions and channels, scale top-performing teams’ playbooks, and reduce concentration risk through broader account growth.</p>
+      <ul class="insight-list">
+        <li>Set 90-day regional margin improvement targets and monitor weekly.</li>
+        <li>Align channel pricing/discount guardrails to protect profitability.</li>
+        <li>Expand top-customer retention motions while reducing over-reliance risk.</li>
+        <li>Coach and rebalance lower-performing teams using high-performing benchmarks.</li>
+      </ul>
+    </section>
+
+  </section>
+</main>
+
+<footer>
+  Generated using Python, Pandas, Plotly, and Jinja2.
+</footer>
+
+<script>
+  const rows = {{ filter_records | tojson }};
+  const filteredSummary = document.getElementById('filteredSummary');
+  const themeToggle = document.getElementById('themeToggle');
+  const CORPORATE_THEME = {{ corporate_theme | tojson }};
+  const REVENUE_COLOR = CORPORATE_THEME.revenue;
+  const PROFIT_COLOR = CORPORATE_THEME.profit;
+  const MARGIN_COLOR = CORPORATE_THEME.profit_margin;
+  const BENCHMARK_COLOR = CORPORATE_THEME.benchmark;
+  const WARNING_COLOR = CORPORATE_THEME.warning;
+  const ORDERS_COLOR = CORPORATE_THEME.orders;
+  const INFO_COLOR = CORPORATE_THEME.info;
+  const REVENUE_COLOR_SCALE = CORPORATE_THEME.revenue_colorscale;
+  const PROFIT_COLOR_SCALE = CORPORATE_THEME.profit_colorscale;
+  const MARGIN_COLOR_SCALE = CORPORATE_THEME.margin_colorscale;
+  const SCATTER_CONTINUOUS_SCALE = CORPORATE_THEME.scatter_continuous_scale;
+  const CATEGORICAL_SCATTER_COLORS = CORPORATE_THEME.scatter_categorical_colors;
+  const monthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const quarterOrder = ['Q1', 'Q2', 'Q3', 'Q4'];
+  const state = {
+    selectedYears: new Set(),
+    selectedQuarters: new Set(),
+    selectedMonths: new Set(),
+  };
+  const filters = {
+    region: document.getElementById('regionFilter'),
+    channel: document.getElementById('channelFilter'),
+    customer: document.getElementById('customerFilter'),
+    team: document.getElementById('teamFilter'),
+    startDate: document.getElementById('startDate'),
+    endDate: document.getElementById('endDate')
+  };
+
+  const normalizedRows = rows.map(row => {
+    const date = row.OrderDate ? new Date(`${row.OrderDate}T00:00:00`) : null;
+    const year = Number(row.Year || (date ? date.getFullYear() : NaN));
+    const monthNumber = Number(row.MonthNumber || (date ? date.getMonth() + 1 : NaN));
+    const monthName = row.MonthName || (monthNumber >= 1 && monthNumber <= 12 ? monthOrder[monthNumber - 1] : '');
+    const quarter = row.Quarter || (monthNumber ? `Q${Math.ceil(monthNumber / 3)}` : '');
+    return {
+      ...row,
+      _date: date,
+      Year: year,
+      Quarter: quarter,
+      MonthNumber: monthNumber,
+      MonthName: monthName,
+      Revenue: Number(row['Transaction Amount'] || 0),
+      ProfitValue: Number(row.Profit || 0),
+      MarginValue: Number(row['Profit Margin'] || 0),
+      QuantityValue: Number(row.OrderQuantity || 0),
+      TotalCostValue: Number(row['Total Cost'] || 0),
+    };
+  });
+
+  const slicerValues = {
+    Year: [...new Set(normalizedRows.map(r => r.Year).filter(v => Number.isFinite(v)))].sort((a, b) => a - b),
+    Quarter: quarterOrder.filter(q => normalizedRows.some(r => r.Quarter === q)),
+    Month: monthOrder.filter(name => normalizedRows.some(r => r.MonthName === name)),
+  };
+
+  function formatCurrency(value) {
+    const number = Number(value || 0);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(number);
+  }
+
+  function updateThemeToggleLabel(isDarkMode) {
+    themeToggle.textContent = isDarkMode ? 'Light mode' : 'Dark mode';
+    themeToggle.setAttribute('aria-pressed', isDarkMode ? 'true' : 'false');
+  }
+
+  function applyTheme(theme) {
+    const isDarkMode = theme === 'dark';
+    document.body.classList.toggle('dark-theme', isDarkMode);
+    updateThemeToggleLabel(isDarkMode);
+  }
+
+  function initializeTheme() {
+    const savedTheme = localStorage.getItem('regionalSalesTheme');
+    applyTheme(savedTheme || 'light');
+    themeToggle.addEventListener('click', () => {
+      const nextTheme = document.body.classList.contains('dark-theme') ? 'light' : 'dark';
+      applyTheme(nextTheme);
+      localStorage.setItem('regionalSalesTheme', nextTheme);
+    });
+  }
+
+  function buildDateSlicers() {
+    const template = document.getElementById('dateSlicerTemplate');
+    document.querySelectorAll('.date-slicer-host').forEach(host => {
+      const fragment = template.content.cloneNode(true);
+      host.appendChild(fragment);
+    });
+    ['Year', 'Quarter', 'Month'].forEach(slicer => {
+      document.querySelectorAll(`.slicer-block[data-slicer="${slicer}"]`).forEach(block => {
+        const valuesWrap = block.querySelector('[data-values]');
+        valuesWrap.innerHTML = slicerValues[slicer].map(value => (
+          `<button type="button" class="slicer-value-btn" data-slicer="${slicer}" data-value="${value}" aria-pressed="false">${value}</button>`
+        )).join('');
+      });
+    });
+    document.addEventListener('click', event => {
+      const valueBtn = event.target.closest('.slicer-value-btn');
+      if (valueBtn) {
+        const slicer = valueBtn.dataset.slicer;
+        const value = valueBtn.dataset.value;
+        const key = slicer === 'Year' ? 'selectedYears' : slicer === 'Quarter' ? 'selectedQuarters' : 'selectedMonths';
+        if (state[key].has(value)) state[key].delete(value); else state[key].add(value);
+        applyFilters();
+        return;
+      }
+      const actionBtn = event.target.closest('.slicer-action');
+      if (!actionBtn) return;
+      const block = actionBtn.closest('.slicer-block');
+      const slicer = block.dataset.slicer;
+      const key = slicer === 'Year' ? 'selectedYears' : slicer === 'Quarter' ? 'selectedQuarters' : 'selectedMonths';
+      if (actionBtn.dataset.action === 'all') {
+        state[key] = new Set(slicerValues[slicer].map(v => String(v)));
+      } else {
+        state[key].clear();
+      }
+      applyFilters();
+    });
+  }
+
+  function updateSlicerUI() {
+    document.querySelectorAll('.slicer-value-btn').forEach(btn => {
+      const slicer = btn.dataset.slicer;
+      const key = slicer === 'Year' ? 'selectedYears' : slicer === 'Quarter' ? 'selectedQuarters' : 'selectedMonths';
+      const active = state[key].has(btn.dataset.value);
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    ['Year', 'Quarter', 'Month'].forEach(slicer => {
+      const key = slicer === 'Year' ? 'selectedYears' : slicer === 'Quarter' ? 'selectedQuarters' : 'selectedMonths';
+      const total = slicerValues[slicer].length;
+      const selectedCount = state[key].size;
+      document.querySelectorAll(`.slicer-block[data-slicer="${slicer}"] .slicer-action[data-action="all"]`).forEach(btn => {
+        btn.disabled = selectedCount === total;
+      });
+      document.querySelectorAll(`.slicer-block[data-slicer="${slicer}"] .slicer-action[data-action="clear"]`).forEach(btn => {
+        btn.disabled = selectedCount === 0;
+      });
+    });
+    const yearText = (state.selectedYears.size && state.selectedYears.size !== slicerValues.Year.length) ? [...state.selectedYears].join(', ') : '';
+    const quarterText = (state.selectedQuarters.size && state.selectedQuarters.size !== slicerValues.Quarter.length) ? [...state.selectedQuarters].join(', ') : '';
+    const monthText = (state.selectedMonths.size && state.selectedMonths.size !== slicerValues.Month.length) ? [...state.selectedMonths].join(', ') : '';
+    const parts = [];
+    if (yearText) parts.push(`Year: ${yearText}`);
+    if (quarterText) parts.push(`Quarter: ${quarterText}`);
+    if (monthText) parts.push(`Month: ${monthText}`);
+    document.querySelectorAll('.active-filter-summary').forEach(el => {
+      if (parts.length === 0) {
+        el.hidden = true;
+        el.textContent = '';
+      } else {
+        el.hidden = false;
+        el.textContent = `Active filters: ${parts.join(' | ')}`;
+      }
+    });
+  }
+
+  function grouped(rowsInput, keyGetter) {
+    const map = new Map();
+    rowsInput.forEach(row => {
+      const key = keyGetter(row);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(row);
+    });
+    return map;
+  }
+
+  function monthlyAgg(data) {
+    const groups = grouped(data.filter(r => r.OrderMonth), r => r.OrderMonth);
+    return [...groups.entries()].map(([month, entries]) => {
+      const revenue = entries.reduce((s, r) => s + r.Revenue, 0);
+      const profit = entries.reduce((s, r) => s + r.ProfitValue, 0);
+      const orders = entries.length;
+      return { month, revenue, profit, margin: revenue ? profit / revenue : 0, orders, aov: orders ? revenue / orders : 0 };
+    }).sort((a, b) => a.month.localeCompare(b.month));
+  }
+
+  function rankedTableHtml(headers, rowsData) {
+    const headerHtml = headers.map(h => `<th>${h}</th>`).join('');
+    const bodyHtml = rowsData.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('');
+    return `<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+  }
+
+  function updateKpis(filtered) {
+    const revenue = filtered.reduce((sum, row) => sum + row.Revenue, 0);
+    const profit = filtered.reduce((sum, row) => sum + row.ProfitValue, 0);
+    const orders = filtered.length;
+    const customers = new Set(filtered.map(r => r.CustomerName).filter(Boolean)).size;
+    const teams = new Set(filtered.map(r => r.SalesTeam).filter(Boolean)).size;
+    const margin = revenue ? (profit / revenue) : 0;
+    const kpiValues = {
+      'Total Revenue': formatCurrency(revenue),
+      'Total Profit': formatCurrency(profit),
+      'Profit Margin': `${(margin * 100).toFixed(1)}%`,
+      'Total Orders': orders.toLocaleString(),
+      'Total Customers': customers.toLocaleString(),
+      'Total Sales Teams': teams.toLocaleString(),
+      'Average Order Value': formatCurrency(orders ? revenue / orders : 0),
+      'Average Profit per Order': formatCurrency(orders ? profit / orders : 0),
+    };
+    document.querySelectorAll('[data-kpi-value]').forEach(el => {
+      const key = el.getAttribute('data-kpi-value');
+      if (kpiValues[key] !== undefined) el.textContent = kpiValues[key];
+    });
+    const execHeadline = document.getElementById('execHeadline');
+    const execMargin = document.getElementById('execMargin');
+    const execScale = document.getElementById('execScale');
+    if (execHeadline) execHeadline.textContent = `Revenue of ${formatCurrency(revenue)} and profit of ${formatCurrency(profit)} were generated across ${orders.toLocaleString()} orders.`;
+    if (execMargin) execMargin.textContent = `Overall profit margin was ${(margin * 100).toFixed(1)}%.`;
+    if (execScale) execScale.textContent = `The business served ${customers.toLocaleString()} customers and ${teams.toLocaleString()} sales teams.`;
+    if (filteredSummary) filteredSummary.innerHTML = `<span class="badge">Rows: ${orders}</span><span class="badge">Revenue: ${formatCurrency(revenue)}</span><span class="badge">Profit: ${formatCurrency(profit)}</span><span class="badge">Margin: ${(margin * 100).toFixed(1)}%</span>`;
+  }
+
+  function updateTables(filtered) {
+    const byRegion = [...grouped(filtered, r => r.Region || 'Unknown').entries()]
+      .map(([k, e]) => [k, e.reduce((s, r) => s + r.Revenue, 0)]).sort((a, b) => b[1] - a[1]);
+    const regionEl = document.getElementById('tableRevenueByRegion');
+    if (regionEl) regionEl.innerHTML = rankedTableHtml(['Region', 'Revenue'], byRegion.map(([k, v]) => [k, formatCurrency(v)]));
+
+    const byTeam = [...grouped(filtered, r => r.SalesTeam || 'Unknown').entries()]
+      .map(([k, e]) => [k, e.reduce((s, r) => s + r.ProfitValue, 0)]).sort((a, b) => b[1] - a[1]);
+    const teamEl = document.getElementById('tableTeamRank');
+    if (teamEl) teamEl.innerHTML = rankedTableHtml(['Sales Team', 'Profit'], byTeam.map(([k, v]) => [k, formatCurrency(v)]));
+
+    const byCustomer = [...grouped(filtered, r => r.CustomerName || 'Unknown').entries()]
+      .map(([k, e]) => [k, e.reduce((s, r) => s + r.Revenue, 0), e.reduce((s, r) => s + r.ProfitValue, 0)]).sort((a, b) => b[1] - a[1]);
+    const topEl = document.getElementById('tableTopCustomers');
+    const bottomEl = document.getElementById('tableBottomCustomers');
+    if (topEl) topEl.innerHTML = rankedTableHtml(['Customer', 'Revenue', 'Profit'], byCustomer.slice(0, 10).map(r => [r[0], formatCurrency(r[1]), formatCurrency(r[2])]));
+    if (bottomEl) bottomEl.innerHTML = rankedTableHtml(['Customer', 'Revenue', 'Profit'], byCustomer.slice(-10).map(r => [r[0], formatCurrency(r[1]), formatCurrency(r[2])]));
+  }
+
+  function applyMinimalistAxisStyle(layout) {
+    const next = { ...(layout || {}) };
+    ['xaxis', 'xaxis2', 'xaxis3', 'yaxis', 'yaxis2', 'yaxis3'].forEach(axisKey => {
+      if (next[axisKey]) {
+        next[axisKey] = { ...next[axisKey], showgrid: false, zeroline: false };
+      }
+    });
+    return next;
+  }
+
+  function reactIfExists(id, data, layout) {
+    const el = document.getElementById(id);
+    if (!el || !window.Plotly) return;
+    const styledLayout = applyMinimalistAxisStyle(layout);
+    window.Plotly.react(el, data, styledLayout, { responsive: true, displaylogo: false });
+  }
+
+  function updateCharts(filtered) {
+    const monthly = monthlyAgg(filtered);
+    const byRegion = [...grouped(filtered, r => r.Region || 'Unknown').entries()].map(([k, e]) => ({ key: k, revenue: e.reduce((s, r) => s + r.Revenue, 0), profit: e.reduce((s, r) => s + r.ProfitValue, 0), margin: 0 })).sort((a, b) => b.revenue - a.revenue);
+    byRegion.forEach(item => { item.margin = item.revenue ? item.profit / item.revenue : 0; });
+    const hasOrderIdentifier = filtered.some(r => r.OrderIdentifier);
+    const byChannel = [...grouped(filtered, r => r.SalesChannel || 'Unknown').entries()].map(([k, e]) => {
+      const orderSet = new Set(e.map(r => r.OrderIdentifier).filter(Boolean));
+      return {
+        key: k,
+        revenue: e.reduce((s, r) => s + r.Revenue, 0),
+        profit: e.reduce((s, r) => s + r.ProfitValue, 0),
+        qty: e.reduce((s, r) => s + r.QuantityValue, 0),
+        orders: orderSet.size ? orderSet.size : e.length,
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+    byChannel.forEach(item => { item.margin = item.revenue ? item.profit / item.revenue : 0; item.aov = item.orders ? item.revenue / item.orders : 0; item.profitForSizing = Math.max(item.profit, 0) + 1; });
+    const channelColorMap = new Map(byChannel.map((item, index) => [item.key, CATEGORICAL_SCATTER_COLORS[index % CATEGORICAL_SCATTER_COLORS.length]]));
+    const byCustomer = [...grouped(filtered, r => r.CustomerName || 'Unknown').entries()].map(([k, e]) => ({ key: k, revenue: e.reduce((s, r) => s + r.Revenue, 0), profit: e.reduce((s, r) => s + r.ProfitValue, 0) })).sort((a, b) => b.revenue - a.revenue);
+    const byTeam = [...grouped(filtered, r => r.SalesTeam || 'Unknown').entries()].map(([k, e]) => ({ key: k, revenue: e.reduce((s, r) => s + r.Revenue, 0), profit: e.reduce((s, r) => s + r.ProfitValue, 0), qty: e.reduce((s, r) => s + r.QuantityValue, 0), orders: e.length })).sort((a, b) => b.revenue - a.revenue);
+    byTeam.forEach(item => { item.margin = item.revenue ? item.profit / item.revenue : 0; item.profitForSizing = Math.max(item.profit, 0) + 1; });
+    const byState = [...grouped(filtered.filter(r => r.StateCode), r => `${r.StateCode}|${r.State || ''}|${r.Region || ''}`)].map(([k, e]) => {
+      const [stateCode, stateName, region] = k.split('|');
+      const revenue = e.reduce((s, r) => s + r.Revenue, 0);
+      const profit = e.reduce((s, r) => s + r.ProfitValue, 0);
+      const orders = e.length;
+      return { stateCode, stateName, region, revenue, profit, margin: revenue ? profit / revenue : 0, orders };
+    });
+
+    if (monthly.length) {
+      const avgBenchmark = monthly.reduce((s, r) => s + r.revenue, 0) / monthly.length;
+      const revenueDiff = monthly.map(r => r.revenue - avgBenchmark);
+      const profitDiffPrev = monthly.map((r, i) => i === 0 ? 0 : r.profit - monthly[i - 1].profit);
+      const custom = monthly.map((r, i) => [r.revenue, r.profit, r.margin, r.orders, r.aov, revenueDiff[i], profitDiffPrev[i]]);
+      const execLayout = { hovermode: 'x unified', template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, xaxis: { tickformat: '%b %Y' }, legend: { orientation: 'h', y: 1.02, x: 0 } };
+      const monthlyChartData = [
+        { type: 'scatter', mode: 'lines+markers', name: 'Monthly Revenue', x: monthly.map(r => r.month), y: monthly.map(r => r.revenue), line: { color: REVENUE_COLOR, width: 3, shape: 'spline', smoothing: 0.85 }, marker: { size: 7 }, customdata: custom, hovertemplate: 'Month: %{x|%b %Y}<br>Revenue: $%{customdata[0]:,.0f}<br>Profit: $%{customdata[1]:,.0f}<br>Profit Margin: %{customdata[2]:.1%}<br>Order Count: %{customdata[3]:,.0f}<br>Average Order Value: $%{customdata[4]:,.0f}<br>Revenue vs Benchmark: $%{customdata[5]:+,.0f}<br>Profit vs Previous Month: $%{customdata[6]:+,.0f}<extra></extra>' },
+        { type: 'scatter', mode: 'lines+markers', name: 'Monthly Profit', x: monthly.map(r => r.month), y: monthly.map(r => r.profit), line: { color: PROFIT_COLOR, width: 3, shape: 'spline', smoothing: 0.85 }, marker: { size: 7 }, customdata: custom, hovertemplate: 'Month: %{x|%b %Y}<br>Revenue: $%{customdata[0]:,.0f}<br>Profit: $%{customdata[1]:,.0f}<br>Profit Margin: %{customdata[2]:.1%}<br>Order Count: %{customdata[3]:,.0f}<br>Average Order Value: $%{customdata[4]:,.0f}<br>Revenue vs Benchmark: $%{customdata[5]:+,.0f}<br>Profit vs Previous Month: $%{customdata[6]:+,.0f}<extra></extra>' },
+        { type: 'scatter', mode: 'lines', name: 'Average Monthly Revenue', x: monthly.map(r => r.month), y: monthly.map(() => avgBenchmark), line: { color: BENCHMARK_COLOR, width: 2, dash: 'dash' } }
+      ];
+      reactIfExists('chart_monthly_revenue', monthlyChartData, execLayout);
+      reactIfExists('chart_monthly_revenue_exec', monthlyChartData, execLayout);
+      reactIfExists('chart_monthly_profit', [{ type: 'scatter', mode: 'lines+markers', x: monthly.map(r => r.month), y: monthly.map(r => r.profit), line: { color: PROFIT_COLOR, width: 3, shape: 'spline' }, marker: { size: 7 }, connectgaps: true }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, xaxis: { tickformat: '%b %Y' }, title: { text: 'Monthly Profit' } });
+      const growth = monthly.map((r, i) => ({ month: r.month, revGrowth: i === 0 ? 0 : (monthly[i - 1].revenue ? (r.revenue - monthly[i - 1].revenue) / monthly[i - 1].revenue : 0), profGrowth: i === 0 ? 0 : (monthly[i - 1].profit ? (r.profit - monthly[i - 1].profit) / monthly[i - 1].profit : 0) }));
+      reactIfExists('chart_monthly_growth', [
+        { type: 'scatter', mode: 'lines+markers', name: 'Revenue Growth', x: growth.map(r => r.month), y: growth.map(r => r.revGrowth), line: { color: REVENUE_COLOR, width: 3, shape: 'spline' }, marker: { size: 7 } },
+        { type: 'scatter', mode: 'lines+markers', name: 'Profit Growth', x: growth.map(r => r.month), y: growth.map(r => r.profGrowth), line: { color: PROFIT_COLOR, width: 3, shape: 'spline' }, marker: { size: 7 } }
+      ], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickformat: '.0%' }, xaxis: { tickformat: '%b %Y' }, title: { text: 'Monthly Revenue and Profit Growth' } });
+      const monthInsight = document.getElementById('monthlyInsight');
+      if (monthInsight) monthInsight.innerHTML = `<strong>Monthly performance insight:</strong> Revenue stayed above average monthly revenue in ${((monthly.filter(m => m.revenue > avgBenchmark).length / monthly.length) * 100).toFixed(0)}% of months.`;
+    }
+
+    if (byRegion.length) {
+      reactIfExists('chart_region_revenue', [{ type: 'bar', x: byRegion.map(r => r.key), y: byRegion.map(r => r.revenue), marker: { color: REVENUE_COLOR }, customdata: byRegion.map(r => [r.key]) }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, title: { text: 'Revenue by Region' } });
+      reactIfExists('chart_region_profit', [{ type: 'bar', x: byRegion.map(r => r.key), y: byRegion.map(r => r.profit), marker: { color: PROFIT_COLOR }, customdata: byRegion.map(r => [r.key]) }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, title: { text: 'Profit by Region' } });
+      reactIfExists('chart_region_margin', [{ type: 'bar', x: byRegion.map(r => r.key), y: byRegion.map(r => r.margin), marker: { color: MARGIN_COLOR }, customdata: byRegion.map(r => [r.key]) }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickformat: '.0%' }, title: { text: 'Profit Margin by Region' } });
+    }
+
+    if (byState.length) {
+      reactIfExists('chart_region_map', [{ type: 'choropleth', locations: byState.map(r => r.stateCode), z: byState.map(r => r.revenue), locationmode: 'USA-states', colorscale: REVENUE_COLOR_SCALE, colorbar: { title: 'Revenue' }, customdata: byState.map(r => [r.region, r.revenue, r.profit, r.margin, r.orders]), hovertemplate: '<b>%{location}</b><br>Region: %{customdata[0]}<br>Revenue: $%{customdata[1]:,.0f}<br>Profit: $%{customdata[2]:,.0f}<br>Profit Margin: %{customdata[3]:.1%}<br>Orders: %{customdata[4]:,.0f}<extra></extra>' }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, title: { text: 'Regional Revenue Intensity Map (US States)' }, geo: { scope: 'usa', showlakes: true, lakecolor: 'rgb(255, 255, 255)' } });
+    }
+
+    if (byChannel.length) {
+      reactIfExists('chart_channel_revenue', [{ type: 'bar', x: byChannel.map(c => c.key), y: byChannel.map(c => c.revenue), marker: { color: REVENUE_COLOR }, customdata: byChannel.map(c => [c.key]) }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, title: { text: 'Revenue by Sales Channel' } });
+      reactIfExists('chart_channel_profit', [{ type: 'bar', x: byChannel.map(c => c.key), y: byChannel.map(c => c.profit), marker: { color: PROFIT_COLOR }, customdata: byChannel.map(c => [c.key]) }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, title: { text: 'Profit by Sales Channel' } });
+      reactIfExists('chart_channel_orders', [{ type: 'bar', x: byChannel.map(c => c.key), y: byChannel.map(c => c.orders), marker: { color: ORDERS_COLOR }, customdata: byChannel.map(c => [c.qty, c.revenue, c.profit, c.aov]), hovertemplate: '<b>%{x}</b><br>Total Orders: %{y:,.0f}<br>Total Order Quantity: %{customdata[0]:,.0f}<br>Revenue: $%{customdata[1]:,.0f}<br>Profit: $%{customdata[2]:,.0f}<br>Average Order Value: $%{customdata[3]:,.0f}<extra></extra>' }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, xaxis: { title: null }, yaxis: { title: null }, title: { text: 'Orders by Sales Channel' } });
+      reactIfExists('chart_channel_margin', [{ type: 'bar', x: byChannel.map(c => c.key), y: byChannel.map(c => c.margin), marker: { color: MARGIN_COLOR }, customdata: byChannel.map(c => [c.key]) }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickformat: '.0%' }, title: { text: 'Profit Margin by Sales Channel' } });
+      reactIfExists('chart_channel_scatter', [{ type: 'scatter', mode: 'markers+text', x: byChannel.map(c => c.orders), y: byChannel.map(c => c.revenue), text: byChannel.map(c => c.key), textposition: 'top center', marker: { size: byChannel.map(c => c.profitForSizing), sizemode: 'area', sizeref: 2.0 * Math.max(...byChannel.map(c => c.profitForSizing), 1) / (54.0 ** 2), sizemin: 12, color: byChannel.map(c => channelColorMap.get(c.key) || INFO_COLOR) }, customdata: byChannel.map(c => [c.key, c.qty, c.profit, c.margin, c.aov]), hovertemplate: '<b>%{customdata[0]}</b><br>Total Orders: %{x:,.0f}<br>Order Quantity: %{customdata[1]:,.0f}<br>Revenue: $%{y:,.0f}<br>Profit: $%{customdata[2]:,.0f}<br>Profit Margin: %{customdata[3]:.1%}<br>Average Order Value: $%{customdata[4]:,.0f}<extra></extra>' }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, xaxis: { title: 'Total Orders' }, yaxis: { title: 'Total Revenue', tickprefix: '$', tickformat: '~s' }, title: { text: 'Orders and Revenue by Sales Channel' } });
+      const channelInsight = document.getElementById('channelInsight');
+      if (channelInsight) {
+        const volumeLeader = [...byChannel].sort((a, b) => b.orders - a.orders)[0];
+        const revenueLeader = [...byChannel].sort((a, b) => b.revenue - a.revenue)[0];
+        const weakMargin = [...byChannel].sort((a, b) => a.margin - b.margin)[0];
+        const lowAovHighVolume = [...byChannel].sort((a, b) => b.orders - a.orders).find(c => c.aov < revenueLeader.aov) || volumeLeader;
+        const highAovLowVolume = [...byChannel].sort((a, b) => b.aov - a.aov).find(c => c.orders < volumeLeader.orders) || revenueLeader;
+        const orderDef = hasOrderIdentifier ? 'Order volume uses distinct OrderIdentifier values.' : 'Order volume uses transaction row count due to no unique order identifier in embedded data.';
+        channelInsight.textContent = `${volumeLeader.key} has the highest order count (${volumeLeader.orders.toLocaleString()}). ${lowAovHighVolume.key} combines high volume with lower average order value (${formatCurrency(lowAovHighVolume.aov)}), while ${highAovLowVolume.key} has fewer orders but stronger revenue per order (${formatCurrency(highAovLowVolume.aov)}). ${weakMargin.key} has the weakest margin at ${(weakMargin.margin * 100).toFixed(1)}%. ${orderDef}`;
+      }
+      const regions = [...new Set(byRegion.map(r => r.key))];
+      const channels = [...new Set(byChannel.map(c => c.key))];
+      const z = regions.map(region => channels.map(channel => filtered.filter(r => (r.Region || 'Unknown') === region && (r.SalesChannel || 'Unknown') === channel).reduce((s, r) => s + r.Revenue, 0)));
+      reactIfExists('chart_heatmap', [{ type: 'heatmap', z, x: channels, y: regions, colorscale: REVENUE_COLOR_SCALE, colorbar: { title: 'Revenue' }, hovertemplate: '%{y}<br>%{x}<br>$%{z:,.0f}<extra></extra>' }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, title: { text: 'Revenue Heatmap: Region x Channel' } });
+      reactIfExists('chart_box_channel_margin', byChannel.map(c => ({ type: 'box', name: c.key, y: filtered.filter(r => (r.SalesChannel || 'Unknown') === c.key).map(r => r.MarginValue), boxmean: true, marker: { color: MARGIN_COLOR } })), { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, title: { text: 'Profit Margin Distribution by Channel' } });
+    }
+
+    if (byCustomer.length) {
+      const top = byCustomer.slice(0, 10);
+      reactIfExists('chart_customer_revenue', [{ type: 'bar', orientation: 'h', x: top.map(c => c.revenue), y: top.map(c => c.key), marker: { color: REVENUE_COLOR } }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, xaxis: { tickprefix: '$', tickformat: '~s' }, yaxis: { autorange: 'reversed' }, title: { text: 'Top Customers by Revenue' } });
+      const topProfit = [...byCustomer].sort((a, b) => b.profit - a.profit).slice(0, 10);
+      reactIfExists('chart_customer_profit', [{ type: 'bar', orientation: 'h', x: topProfit.map(c => c.profit), y: topProfit.map(c => c.key), marker: { color: PROFIT_COLOR } }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, xaxis: { tickprefix: '$', tickformat: '~s' }, yaxis: { autorange: 'reversed' }, title: { text: 'Top Customers by Profit' } });
+      const totalRevenue = byCustomer.reduce((s, c) => s + c.revenue, 0);
+      reactIfExists('chart_customer_concentration', [{ type: 'pie', labels: top.map(c => c.key), values: top.map(c => c.revenue), hole: 0.45, textinfo: 'label+percent' }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, title: { text: 'Customer Revenue Concentration' } });
+      const concEl = document.getElementById('tableConcentration');
+      if (concEl) concEl.innerHTML = rankedTableHtml(['Customer', 'Revenue Contribution', 'Cumulative'], (() => { let cum = 0; return byCustomer.slice(0, 10).map(c => { const share = totalRevenue ? c.revenue / totalRevenue : 0; cum += share; return [c.key, `${(share * 100).toFixed(1)}%`, `${(cum * 100).toFixed(1)}%`]; }); })());
+    }
+
+    if (byTeam.length) {
+      const top = byTeam.slice(0, 10);
+      const others = byTeam.slice(10);
+      const teamChart = others.length ? [...top, { key: `Other (${others.length} teams)`, revenue: others.reduce((s, t) => s + t.revenue, 0), profit: others.reduce((s, t) => s + t.profit, 0), margin: 0, orders: others.reduce((s, t) => s + t.orders, 0), qty: others.reduce((s, t) => s + t.qty, 0), profitForSizing: others.reduce((s, t) => s + t.profitForSizing, 0) }] : top;
+      reactIfExists('chart_sales_team', [{ type: 'bar', orientation: 'h', x: teamChart.map(t => t.revenue), y: teamChart.map(t => t.key), marker: { color: REVENUE_COLOR }, customdata: teamChart.map(t => [t.key, t.profit, t.margin, t.orders, t.qty]), hovertemplate: '<b>%{y}</b><br>Revenue: $%{x:,.0f}<br>Profit: $%{customdata[1]:,.0f}<br>Profit Margin: %{customdata[2]:.1%}<br>Orders: %{customdata[3]:,.0f}<br>Order Quantity: %{customdata[4]:,.0f}<extra></extra>' }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, xaxis: { tickprefix: '$', tickformat: '~s' }, yaxis: { autorange: 'reversed' }, title: { text: 'Top Sales Teams by Revenue' } });
+      reactIfExists('chart_team_profit', [{ type: 'bar', x: byTeam.map(t => t.key), y: byTeam.map(t => t.profit), marker: { color: PROFIT_COLOR }, customdata: byTeam.map(t => [t.key]) }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, title: { text: 'Profit by Sales Team' } });
+      reactIfExists('chart_team_scatter', [{ type: 'scatter', mode: 'markers+text', x: byTeam.map(t => t.orders), y: byTeam.map(t => t.revenue), text: byTeam.map(t => t.key), textposition: 'top center', marker: { size: byTeam.map(t => t.profitForSizing), sizemode: 'area', sizeref: 2.0 * Math.max(...byTeam.map(t => t.profitForSizing), 1) / (54.0 ** 2), sizemin: 10, color: byTeam.map(t => t.margin), colorscale: SCATTER_CONTINUOUS_SCALE, showscale: true, colorbar: { title: 'Profit Margin' } }, customdata: byTeam.map(t => [t.key, t.profit, t.margin, t.qty]), hovertemplate: '<b>%{text}</b><br>Orders: %{x:,.0f}<br>Revenue: $%{y:,.0f}<br>Profit: $%{customdata[1]:,.0f}<br>Profit Margin: %{customdata[2]:.1%}<br>Order Quantity: %{customdata[3]:,.0f}<extra></extra>' }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, title: { text: 'Orders and Revenue by Sales Team' } });
+      const teamInsight = document.getElementById('teamInsight');
+      if (teamInsight) teamInsight.textContent = others.length ? `Chart displays top 10 teams by revenue with remaining teams grouped into Other for readability.` : 'Chart displays all teams ranked by revenue.';
+    }
+
+    const quarterlyMap = new Map();
+    monthly.forEach(item => {
+      const d = new Date(`${item.month}T00:00:00`);
+      const q = `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
+      if (!quarterlyMap.has(q)) quarterlyMap.set(q, { revenue: 0, profit: 0 });
+      quarterlyMap.get(q).revenue += item.revenue;
+      quarterlyMap.get(q).profit += item.profit;
+    });
+    const quarterly = [...quarterlyMap.entries()].map(([q, v]) => ({ q, ...v }));
+    if (quarterly.length) {
+      const quarterlyChartData = [
+        { type: 'bar', x: quarterly.map(q => q.q), y: quarterly.map(q => q.revenue), name: 'Transaction Amount', marker: { color: REVENUE_COLOR } },
+        { type: 'scatter', x: quarterly.map(q => q.q), y: quarterly.map(q => q.profit), name: 'Profit', mode: 'lines+markers', line: { color: PROFIT_COLOR, width: 3, shape: 'spline' }, marker: { size: 7 }, yaxis: 'y2' }
+      ];
+      const quarterlyLayout = { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, yaxis2: { overlaying: 'y', side: 'right', tickprefix: '$', tickformat: '~s' }, title: { text: 'Quarterly Revenue and Profit' } };
+      reactIfExists('chart_quarterly_mix', quarterlyChartData, quarterlyLayout);
+      reactIfExists('chart_quarterly_mix_exec', quarterlyChartData, quarterlyLayout);
+    }
+
+    const dailyAgg = [...grouped(filtered.filter(r => r.OrderDate), r => r.OrderDate).entries()]
+      .map(([d, e]) => ({ date: d, revenue: e.reduce((s, r) => s + r.Revenue, 0), profit: e.reduce((s, r) => s + r.ProfitValue, 0) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (dailyAgg.length) {
+      const positiveDaily = dailyAgg.filter(d => d.profit >= 0);
+      const negativeDaily = dailyAgg.filter(d => d.profit < 0);
+      const scatterSeries = [];
+      if (positiveDaily.length) {
+        scatterSeries.push({
+          type: 'scatter', mode: 'markers', name: 'Profit',
+          x: positiveDaily.map(d => d.revenue),
+          y: positiveDaily.map(d => d.profit),
+          marker: {
+            size: 9, opacity: 0.85,
+            color: positiveDaily.map(d => d.revenue),
+            colorscale: SCATTER_CONTINUOUS_SCALE,
+            showscale: true,
+            colorbar: { title: 'Revenue', tickprefix: '$', tickformat: '~s' },
+            line: { color: 'white', width: 0.4 }
+          },
+          hovertemplate: 'Revenue: $%{x:,.0f}<br>Profit: $%{y:,.0f}<extra></extra>'
+        });
+      }
+      if (negativeDaily.length) {
+        scatterSeries.push({
+          type: 'scatter', mode: 'markers', name: 'Negative Profit',
+          x: negativeDaily.map(d => d.revenue),
+          y: negativeDaily.map(d => d.profit),
+          marker: {
+            size: 9, opacity: 0.85,
+            color: WARNING_COLOR,
+            line: { color: 'white', width: 0.4 }
+          },
+          hovertemplate: 'Revenue: $%{x:,.0f}<br>Profit: $%{y:,.0f}<extra></extra>'
+        });
+      }
+      reactIfExists('chart_revenue_profit_scatter', scatterSeries, {
+        template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 },
+        title: { text: 'Revenue vs Profit' },
+        xaxis: { title: null, tickprefix: '$', tickformat: '~s' },
+        yaxis: { title: null, tickprefix: '$', tickformat: '~s' }
+      });
+    }
+
+    const hasCategory = filtered.some(r => r.Category);
+    if (hasCategory) {
+      const byProduct = [...grouped(filtered, r => r.Category || 'Unknown').entries()].map(([k, e]) => ({ key: k, revenue: e.reduce((s, r) => s + r.Revenue, 0), profit: e.reduce((s, r) => s + r.ProfitValue, 0), qty: e.reduce((s, r) => s + r.QuantityValue, 0) })).sort((a, b) => b.revenue - a.revenue);
+      reactIfExists('chart_product_revenue', [{ type: 'bar', x: byProduct.map(p => p.key), y: byProduct.map(p => p.revenue), marker: { color: REVENUE_COLOR } }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, title: { text: 'Revenue by Product' } });
+      reactIfExists('chart_product_profit', [{ type: 'bar', x: byProduct.map(p => p.key), y: byProduct.map(p => p.profit), marker: { color: PROFIT_COLOR } }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, yaxis: { tickprefix: '$', tickformat: '~s' }, title: { text: 'Profit by Product' } });
+      reactIfExists('chart_product_quantity', [{ type: 'bar', x: byProduct.map(p => p.key), y: byProduct.map(p => p.qty), marker: { color: ORDERS_COLOR } }], { template: 'plotly_white', margin: { l: 30, r: 20, t: 60, b: 30 }, title: { text: 'Quantity by Product' } });
+    }
+
+    const mapNote = document.getElementById('mapNote');
+    if (mapNote) mapNote.textContent = byState.length ? 'Map uses state-level geography from Store Locations and Regions worksheets; color intensity represents revenue.' : 'A true geographic choropleth was not possible from the available fields, so no map is displayed.';
+  }
+
+  function applyPlotlyCursorRules(chartEl) {
+    if (!chartEl) return;
+    ['.bars .point', '.scatterlayer .point', '.scatterlayer .trace .points path', '.pielayer .slice', '.choroplethlayer path', '.legend .legendtoggle'].forEach(selector => {
+      chartEl.querySelectorAll(selector).forEach(node => { node.style.cursor = 'pointer'; });
+    });
+    ['.draglayer', '.nsewdrag', '.nsdrag', '.ewdrag', '.swdrag', '.sdrag', '.wdrag', '.edrag', '.ndrag', '.plotbg', '.bg'].forEach(selector => {
+      chartEl.querySelectorAll(selector).forEach(node => { node.style.cursor = 'default'; });
+    });
+  }
+
+  function extractFilterValue(point, field) {
+    if (!point) return '';
+    if (field === 'Region') return Array.isArray(point.customdata) ? (point.customdata[0] || '') : (point.x || '');
+    if (field === 'SalesChannel') return (Array.isArray(point.customdata) ? (point.customdata[0] || '') : '') || point.x || point.text || '';
+    if (field === 'SalesTeam') return (Array.isArray(point.customdata) ? (point.customdata[0] || '') : '') || point.y || point.text || '';
+    return '';
+  }
+
+  function attachPlotlyBehavior(chartId, filterField, targetSelect) {
+    const chartEl = document.getElementById(chartId);
+    if (!chartEl || typeof chartEl.on !== 'function') return;
+    const applyCursor = () => applyPlotlyCursorRules(chartEl);
+    ['plotly_afterplot', 'plotly_relayout', 'plotly_restyle', 'plotly_update'].forEach(evt => { chartEl.on(evt, applyCursor); });
+    applyCursor();
+    if (!targetSelect) return;
+    chartEl.on('plotly_click', eventData => {
+      const point = eventData && eventData.points && eventData.points[0] ? eventData.points[0] : null;
+      const value = extractFilterValue(point, filterField);
+      if (!value) return;
+      if (!Array.from(targetSelect.options).some(option => option.value === value)) return;
+      targetSelect.value = value;
+      applyFilters();
+    });
+  }
+
+  function resizeChartsInPanel(panel) {
+    if (!window.Plotly || !panel) return;
+    panel.querySelectorAll('.plotly-graph-div').forEach(chart => {
+      window.Plotly.Plots.resize(chart);
+      applyPlotlyCursorRules(chart);
+    });
+  }
+
+  function initializeTabs() {
+    const buttons = document.querySelectorAll('.tab-button');
+    const panels = document.querySelectorAll('.tab-panel');
+    buttons.forEach(button => {
+      button.addEventListener('click', () => {
+        const tabId = button.getAttribute('data-tab');
+        buttons.forEach(btn => { btn.classList.remove('active'); btn.setAttribute('aria-selected', 'false'); });
+        panels.forEach(panel => panel.classList.remove('active'));
+        button.classList.add('active');
+        button.setAttribute('aria-selected', 'true');
+        const activePanel = document.getElementById(tabId);
+        if (activePanel) {
+          activePanel.classList.add('active');
+          requestAnimationFrame(() => resizeChartsInPanel(activePanel));
+        }
+      });
+    });
+  }
+
+  function getFilteredRows() {
+    const region = filters.region.value;
+    const channel = filters.channel.value;
+    const customer = filters.customer.value;
+    const team = filters.team.value;
+    const startDate = filters.startDate.value;
+    const endDate = filters.endDate.value;
+    return normalizedRows.filter(row => {
+      if (region && row.Region !== region) return false;
+      if (channel && row.SalesChannel !== channel) return false;
+      if (customer && row.CustomerName !== customer) return false;
+      if (team && row.SalesTeam !== team) return false;
+      if (startDate && row.OrderDate && row.OrderDate < startDate) return false;
+      if (endDate && row.OrderDate && row.OrderDate > endDate) return false;
+      if (state.selectedYears.size && !state.selectedYears.has(String(row.Year))) return false;
+      if (state.selectedQuarters.size && !state.selectedQuarters.has(row.Quarter)) return false;
+      if (state.selectedMonths.size && !state.selectedMonths.has(row.MonthName)) return false;
+      return true;
+    });
+  }
+
+  function applyFilters() {
+    updateSlicerUI();
+    const filtered = getFilteredRows();
+    updateKpis(filtered);
+    updateTables(filtered);
+    updateCharts(filtered);
+    const activePanel = document.querySelector('.tab-panel.active');
+    resizeChartsInPanel(activePanel);
+  }
+
+  function initializePlotlyInteractions() {
+    attachPlotlyBehavior('chart_region_revenue', 'Region', filters.region);
+    attachPlotlyBehavior('chart_region_profit', 'Region', filters.region);
+    attachPlotlyBehavior('chart_region_margin', 'Region', filters.region);
+    attachPlotlyBehavior('chart_region_map', 'Region', filters.region);
+    attachPlotlyBehavior('chart_channel_revenue', 'SalesChannel', filters.channel);
+    attachPlotlyBehavior('chart_channel_profit', 'SalesChannel', filters.channel);
+    attachPlotlyBehavior('chart_channel_orders', 'SalesChannel', filters.channel);
+    attachPlotlyBehavior('chart_channel_margin', 'SalesChannel', filters.channel);
+    attachPlotlyBehavior('chart_channel_scatter', 'SalesChannel', filters.channel);
+    attachPlotlyBehavior('chart_sales_team', 'SalesTeam', filters.team);
+    attachPlotlyBehavior('chart_team_profit', 'SalesTeam', filters.team);
+    attachPlotlyBehavior('chart_team_scatter', 'SalesTeam', filters.team);
+    document.querySelectorAll('.plotly-graph-div').forEach(applyPlotlyCursorRules);
+  }
+
+  Object.values(filters).forEach(el => el.addEventListener('change', applyFilters));
+  initializeTheme();
+  buildDateSlicers();
+  initializeTabs();
+  applyFilters();
+  requestAnimationFrame(() => {
+    initializePlotlyInteractions();
+    setTimeout(() => {
+      initializePlotlyInteractions();
+      resizeChartsInPanel(document.querySelector('.tab-panel.active'));
+    }, 400);
+  });
+</script>
+</body>
+</html>
